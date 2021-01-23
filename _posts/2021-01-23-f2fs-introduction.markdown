@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "[Ch1.Sec1]. The Introduction of F2FS"
+title: "[F2FS-Code] <Ch1.Sec1> The Introduction of F2FS"
 date: 2021-01-23 16:04:23 +0900
 category: F2FS-Code-Scanning
 ---
