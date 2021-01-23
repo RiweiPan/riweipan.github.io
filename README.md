@@ -1,33 +1,14 @@
 ---
 layout: page
-title: About
+title: About the blog
 permalink: /about/
 ---
 
-## Theme Monos
-> Simple and lightweight theme for Jekyll
+I am a developer and researcher who pays close attention to the development of storage technology. I would like to share my understanding and opinions on storage technologies!
 
-### Features
-- Responsive.
-- Syntax Highlight
-- Most optimized theme for tech blog.
-- Lightweight with minimum stylesheet.
-- Easy to customize.
-- Offers category menu.
-
-### _config.yml
-> Code block will look like this.
-```yml
-highlighter-theme: monokai //you can change your syntax color scheme.
-date_format: "%Y-%M-%D" //and date format.
-```
-
-### Screenshots
-#### Page
-![alt text](/public/img/screenshot-1.png)
-#### Articles
-![alt text](/public/img/screenshot-2.png)
-#### Page - Mobile
-![alt text](/public/img/screenshot-m1.png)
-#### Page - Articles
-![alt text](/public/img/screenshot-m2.png)
+This blog mainly focuses on:
+- File system
+- SSD and Non-volatile memory
+- Linux I/O stack
+- Key-Value Storage
+- Mobile Storage
