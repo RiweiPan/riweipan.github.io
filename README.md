@@ -1,6 +1,6 @@
 ---
 layout: page
-title: About the blog
+title: About this blog
 permalink: /about/
 ---
 
@@ -9,8 +9,8 @@ I am a developer and researcher who pays close attention to the development of s
 &nbsp;
 
 This blog mainly focuses on:
-- File system
-- SSD and Non-volatile memory
-- Linux I/O stack
+- File System
+- SSD and Non-volatile Memory
+- Linux I/O Stack
 - Key-Value Storage
 - Mobile Storage
