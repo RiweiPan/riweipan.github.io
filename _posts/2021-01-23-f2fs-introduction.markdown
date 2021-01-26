@@ -35,13 +35,11 @@ The log header area in LFS can be understood as a data allocator so it assigns f
 
 # The layout of F2FS
 
+With the help of mkfs.f2fs tool, we can format the whole flash devices into six parts: Superblock, Checkpoint, Segment Info Table, Node Addr Table, Segment Summary Area and Main Area. The first five area is called metadata area, saving the meta information about F2FS (free blocks, block bitmap, etc.). The Main Area stores the dir and file data, including node data, and normal file data. The function of these areas is:
+
 <div align=center>
 <img src="/public/img/F2FS-Scanning/F2FS-CH1/f2fs-layout.png" width="950" />
 </div>
-
-With the help of mkfs.f2fs tool, we can format the whole flash devices into six parts: Superblock, Checkpoint, Segment Info Table, Node Addr Table, Segment Summary Area and Main Area. The first five area is called metadata area, saving the meta information about F2FS (free blocks, block bitmap, etc.). The Main Area stores the dir and file data, including node data, and normal file data. The function of these areas is:
-
-<br/>
 
 **Superblock:** Record the meta information about F2FS, including the number of blocks, free blocks, nodes, etc. The corresponding in-memory data structure is `struct f2fs_sb_info`. 
 
