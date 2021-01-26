@@ -110,7 +110,7 @@ encryption_level =
 ```
 
 #### Superblock In-Mmemory Structure
-As mentioned above，`f2fs_sb_info` is the memory form of `f2fs_super_block`. `f2fs_sb_info` records not only the information of f2fs_super_block`, but also locks, GC thread, system mode, and the memory structure of NAT, SIT, etc.
+As mentioned above，`f2fs_sb_info` is the memory form of `f2fs_super_block`. `f2fs_sb_info` records not only the information of `f2fs_super_block`, but also locks, GC thread, system mode, and the memory structure of NAT, SIT, etc.
 
 ```c
 struct f2fs_sb_info {
@@ -143,7 +143,7 @@ struct f2fs_sb_info {
 
 <br/>
 
-`f2fs_sb_info` is initilized in `init_sb_info` function.
+`f2fs_sb_info` is initilized in `init_sb_info` function. We can find the variable `struct f2fs_super_block *raw_super` and this variable introduces the information on storage devices. `struct f2fs_sb_info *sbi` is a in-memory structure which copies data from `raw_super`.
 ```c
 static void init_sb_info(struct f2fs_sb_info *sbi)
 {
