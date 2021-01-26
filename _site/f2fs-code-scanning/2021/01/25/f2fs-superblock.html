@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1"><link type="application/atom+xml" rel="alternate" href="http://localhost:4000/feed.xml" title="Riwei's Blog" /></head>
+<style>@import url(/public/css/syntax/monokai.css);</style>
+  <title>Riwei's Blog</title>
+  <!-- <link href="/public/css/bootstrap.min.css" rel="stylesheet"> -->
+
+  <link href="/public/css/style.css" rel="stylesheet">
+  <body>
+  	<div class="container"> 
+		<div class="sidebar">
+			<div class="sidebar-item sidebar-header">
+	<div class='sidebar-brand'>
+		<a href="/about/">Riwei's Blog</a>
+	</div>
+	<p class="lead">Focusing on storage technology!</p></div>
+
+<div class="sidebar-item sidebar-nav">
+	<ul class="nav">
+      <li class="nav-title">Pages</li>
+	  <li>
+	  	<a class="nav-item" href="/">Articles</a>
+	  </li>
+	  
+	  
+	    
+	  
+	    
+	      
+	        <li>
+	        	<a class="nav-item" href="/about/">
+	            	About this blog
+	            </a>
+	        </li>
+	      
+	    
+	  
+	    
+	      
+	    
+	  
+	    
+	  
+	    
+	      
+	        <li>
+	        	<a class="nav-item" href="/profile/">
+	            	Riwei PAN's Profile
+	            </a>
+	        </li>
+	      
+	    
+	  
+	    
+	  
+	</ul>
+</div>
+
+<div class="sidebar-item sidebar-nav">
+  	<ul class="nav">
+			<li class="nav-title">Categories</li>
+	    
+	    <li>
+	    	<a class="nav-item" href="/category/#F2FS-Code-Scanning">
+				<span class="name">F2FS-Code-Scanning</span>
+				<span class="badge">2</span>
+	    	</a>
+ 		</li>
+	    
+	  </nav>
+	</ul>
+</div>
+
+<div class="sidebar-item sidebar-footer">
+	<p>Powered by <a href="https://github.com/jekyll/jekyll">Jekyll</a></p>
+</div>
+		</div>
+		<div class="content">
+			<article class="post">
+	<header class="post-header">
+		<div class="post-title"> 
+			[F2FS-Code] &lt;Ch1.Sec2&gt; Superblock Structure
+		</div>
+		<time class="post-date dt-published" datetime="2021-01-25T20:54:23+08:00" itemprop="datePublished">2021/01/25
+		</time>		
+	</header>
+
+	<div class="post-content">
+		<h1 id="superblock-area">Superblock Area</h1>
+<p>Superblock Area in F2FS stores the core metadata information, including the capacity of storage devices, block size, available blocks and the index of other areas (SIT, NAT, SSA, Main) on the storage device.</p>
+
+<h2 id="the-layout-of-superblock-on-storage-ddvice">The Layout of Superblock on Storage Ddvice</h2>
+
+<p>Superblock Area consists of two <code class="highlighter-rouge">struct f2fs_super_block</code>, which are backups of each other. When the file system is initialized, the two structures are first read from the front of the storage device, loading into memory, and the NAT, SIT, SSA Area are initialized according to the index information recorded by the <code class="highlighter-rouge">struct f2fs_super_block</code>.</p>
+
+<div align="center">
+<img src="/public/img/F2FS-Scanning/F2FS-CH1/sb_layout2.png" width="730" />
+</div>
+
+<p><code class="highlighter-rouge">struct f2fs_super_block</code> is a physical structure stored on storage device. When it is loaded into memory, its information will be copied to an in-memory structure <code class="highlighter-rouge">struct f2fs_sb_info</code>. Their definitions are as follows:</p>
+
+<p><br /></p>
+
+<h4 id="superblock-physical-structure">Superblock Physical Structure</h4>
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">struct</span> <span class="n">f2fs_super_block</span> <span class="p">{</span>
+	<span class="n">__le32</span> <span class="n">magic</span><span class="p">;</span>			<span class="cm">/* Magic Number */</span>
+	<span class="n">__le16</span> <span class="n">major_ver</span><span class="p">;</span>		<span class="cm">/* Major Version */</span>
+	<span class="n">__le16</span> <span class="n">minor_ver</span><span class="p">;</span>		<span class="cm">/* Minor Version */</span>
+	<span class="n">__le32</span> <span class="n">log_sectorsize</span><span class="p">;</span>		<span class="cm">/* log2 sector size in bytes */</span>
+	<span class="n">__le32</span> <span class="n">log_sectors_per_block</span><span class="p">;</span> <span class="cm">/* log2 # of sectors per block */</span>
+	<span class="n">__le32</span> <span class="n">log_blocksize</span><span class="p">;</span>		<span class="cm">/* log2 block size in bytes */</span>
+	<span class="n">__le32</span> <span class="n">log_blocks_per_seg</span><span class="p">;</span>	<span class="cm">/* log2 # of blocks per segment */</span>
+	<span class="n">__le32</span> <span class="n">segs_per_sec</span><span class="p">;</span>		<span class="cm">/* # of segments per section */</span>
+	<span class="n">__le32</span> <span class="n">secs_per_zone</span><span class="p">;</span>		<span class="cm">/* # of sections per zone */</span>
+	<span class="n">__le32</span> <span class="n">checksum_offset</span><span class="p">;</span>		<span class="cm">/* checksum offset inside super block */</span>
+	<span class="n">__le64</span> <span class="n">block_count</span><span class="p">;</span>		<span class="cm">/* total # of user blocks */</span>
+	<span class="n">__le32</span> <span class="n">section_count</span><span class="p">;</span>		<span class="cm">/* total # of sections */</span>
+	<span class="n">__le32</span> <span class="n">segment_count</span><span class="p">;</span>		<span class="cm">/* total # of segments */</span>
+	<span class="n">__le32</span> <span class="n">segment_count_ckpt</span><span class="p">;</span>	<span class="cm">/* # of segments for checkpoint */</span>
+	<span class="n">__le32</span> <span class="n">segment_count_sit</span><span class="p">;</span>	<span class="cm">/* # of segments for SIT */</span>
+	<span class="n">__le32</span> <span class="n">segment_count_nat</span><span class="p">;</span>	<span class="cm">/* # of segments for NAT */</span>
+	<span class="n">__le32</span> <span class="n">segment_count_ssa</span><span class="p">;</span>	<span class="cm">/* # of segments for SSA */</span>
+	<span class="n">__le32</span> <span class="n">segment_count_main</span><span class="p">;</span>	<span class="cm">/* # of segments for main area */</span>
+	<span class="n">__le32</span> <span class="n">segment0_blkaddr</span><span class="p">;</span>	<span class="cm">/* start block address of segment 0 */</span>
+	<span class="n">__le32</span> <span class="n">cp_blkaddr</span><span class="p">;</span>		<span class="cm">/* start block address of checkpoint */</span>
+	<span class="n">__le32</span> <span class="n">sit_blkaddr</span><span class="p">;</span>		<span class="cm">/* start block address of SIT */</span>
+	<span class="n">__le32</span> <span class="n">nat_blkaddr</span><span class="p">;</span>		<span class="cm">/* start block address of NAT */</span>
+	<span class="n">__le32</span> <span class="n">ssa_blkaddr</span><span class="p">;</span>		<span class="cm">/* start block address of SSA */</span>
+	<span class="n">__le32</span> <span class="n">main_blkaddr</span><span class="p">;</span>		<span class="cm">/* start block address of main area */</span>
+	<span class="n">__le32</span> <span class="n">root_ino</span><span class="p">;</span>		<span class="cm">/* root inode number */</span>
+	<span class="n">__le32</span> <span class="n">node_ino</span><span class="p">;</span>		<span class="cm">/* node inode number */</span>
+	<span class="n">__le32</span> <span class="n">meta_ino</span><span class="p">;</span>		<span class="cm">/* meta inode number */</span>
+	<span class="n">__u8</span> <span class="n">uuid</span><span class="p">[</span><span class="mi">16</span><span class="p">];</span>			<span class="cm">/* 128-bit uuid for volume */</span>
+	<span class="n">__le16</span> <span class="n">volume_name</span><span class="p">[</span><span class="n">MAX_VOLUME_NAME</span><span class="p">];</span>	<span class="cm">/* volume name */</span>
+	<span class="n">__le32</span> <span class="n">extension_count</span><span class="p">;</span>		<span class="cm">/* # of extensions below */</span>
+	<span class="n">__u8</span> <span class="n">extension_list</span><span class="p">[</span><span class="n">F2FS_MAX_EXTENSION</span><span class="p">][</span><span class="n">F2FS_EXTENSION_LEN</span><span class="p">];</span><span class="cm">/* extension array */</span>
+	<span class="n">__le32</span> <span class="n">cp_payload</span><span class="p">;</span>
+	<span class="n">__u8</span> <span class="n">version</span><span class="p">[</span><span class="n">VERSION_LEN</span><span class="p">];</span>	<span class="cm">/* the kernel version */</span>
+	<span class="n">__u8</span> <span class="n">init_version</span><span class="p">[</span><span class="n">VERSION_LEN</span><span class="p">];</span>	<span class="cm">/* the initial kernel version */</span>
+	<span class="n">__le32</span> <span class="n">feature</span><span class="p">;</span>			<span class="cm">/* defined features */</span>
+	<span class="n">__u8</span> <span class="n">encryption_level</span><span class="p">;</span>		<span class="cm">/* versioning level for encryption */</span>
+	<span class="n">__u8</span> <span class="n">encrypt_pw_salt</span><span class="p">[</span><span class="mi">16</span><span class="p">];</span>	<span class="cm">/* Salt used for string2key algorithm */</span>
+	<span class="k">struct</span> <span class="n">f2fs_device</span> <span class="n">devs</span><span class="p">[</span><span class="n">MAX_DEVICES</span><span class="p">];</span>	<span class="cm">/* device list */</span>
+	<span class="n">__le32</span> <span class="n">qf_ino</span><span class="p">[</span><span class="n">F2FS_MAX_QUOTAS</span><span class="p">];</span>	<span class="cm">/* quota inode numbers */</span>
+	<span class="n">__u8</span> <span class="n">hot_ext_count</span><span class="p">;</span>		<span class="cm">/* # of hot file extension */</span>
+	<span class="n">__u8</span> <span class="n">reserved</span><span class="p">[</span><span class="mi">314</span><span class="p">];</span>		<span class="cm">/* valid reserved region */</span>
+<span class="p">}</span> <span class="n">__packed</span><span class="p">;</span>
+
+</code></pre></div></div>
+
+<p>For a 50MB storage device, the information of a formatted <code class="highlighter-rouge">f2fs_super_block</code> is:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>magic = -218816496
+major_ver = 1
+minor_ver = 10
+log_sectorsize = 9
+log_sectors_per_block = 3
+log_blocksize = 12
+log_blocks_per_seg = 9
+segs_per_sec = 1
+secs_per_zone = 1
+checksum_offset = 0
+block_count = 12800 # 50MB / 4KB = 12800
+section_count = 17
+segment_count = 24
+segment_count_ckpt = 2 # checkpoint uses two segments (2MB * 2)
+segment_count_sit = 2  # SIT: 2 segments
+segment_count_nat = 2  # NAT: 2 segments
+segment_count_ssa = 1  # SSA: 1 segments
+segment_count_main = 17 # main area occupies 17 segments (17 * 2 = 34MB)
+segment0_blkaddr = 512
+cp_blkaddr = 512       # the start offset of Checkpoint Area on storage device
+sit_blkaddr = 1536     # the start offset of SIT Area on storage device
+nat_blkaddr = 2560	   # the start offset of NAT Area on storage device
+ssa_blkaddr = 3584     # the start offset of SSA Area on storage device
+main_blkaddr = 4096    # the start offset of Main Area on storage device
+root_ino = 3
+node_ino = 1
+meta_ino = 2
+extension_count = 27
+cp_payload = 0
+feature = 0
+encryption_level = 
+</code></pre></div></div>
+
+<h4 id="superblock-in-mmemory-structure">Superblock In-Mmemory Structure</h4>
+<p>As mentioned above，<code class="highlighter-rouge">f2fs_sb_info</code> is the memory form of <code class="highlighter-rouge">f2fs_super_block</code>. <code class="highlighter-rouge">f2fs_sb_info</code> records not only the information of f2fs_super_block`, but also locks, GC thread, system mode, and the memory structure of NAT, SIT, etc.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">struct</span> <span class="n">f2fs_sb_info</span> <span class="p">{</span>
+	<span class="k">struct</span> <span class="n">super_block</span> <span class="o">*</span><span class="n">sb</span><span class="p">;</span>			<span class="cm">/* pointer to VFS super block */</span>
+	<span class="k">struct</span> <span class="n">f2fs_super_block</span> <span class="o">*</span><span class="n">raw_super</span><span class="p">;</span>	<span class="cm">/* raw super block pointer */</span>
+	<span class="k">struct</span> <span class="n">rw_semaphore</span> <span class="n">sb_lock</span><span class="p">;</span>		<span class="cm">/* lock for raw super block */</span>
+
+	<span class="cm">/* for node-related operations */</span>
+	<span class="k">struct</span> <span class="n">f2fs_nm_info</span> <span class="o">*</span><span class="n">nm_info</span><span class="p">;</span>		<span class="cm">/* node manager */</span>
+	<span class="k">struct</span> <span class="n">inode</span> <span class="o">*</span><span class="n">node_inode</span><span class="p">;</span>		<span class="cm">/* cache node blocks */</span>
+
+	<span class="cm">/* for segment-related operations */</span>
+	<span class="k">struct</span> <span class="n">f2fs_sm_info</span> <span class="o">*</span><span class="n">sm_info</span><span class="p">;</span>		<span class="cm">/* segment manager */</span>
+
+	<span class="cm">/* for checkpoint */</span>
+	<span class="k">struct</span> <span class="n">f2fs_checkpoint</span> <span class="o">*</span><span class="n">ckpt</span><span class="p">;</span>		<span class="cm">/* raw checkpoint pointer */</span>
+
+	<span class="cm">/* for orphan inode, use 0'th array */</span>
+	<span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">max_orphans</span><span class="p">;</span>		<span class="cm">/* max orphan inodes */</span>
+
+	<span class="k">struct</span> <span class="n">f2fs_mount_info</span> <span class="n">mount_opt</span><span class="p">;</span>	<span class="cm">/* mount options */</span>
+
+	<span class="cm">/* for cleaning operations */</span>
+	<span class="k">struct</span> <span class="n">mutex</span> <span class="n">gc_mutex</span><span class="p">;</span>			<span class="cm">/* mutex for GC */</span>
+	<span class="k">struct</span> <span class="n">f2fs_gc_kthread</span>	<span class="o">*</span><span class="n">gc_thread</span><span class="p">;</span>	<span class="cm">/* GC thread */</span>
+	<span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">cur_victim_sec</span><span class="p">;</span>		<span class="cm">/* current victim section num */</span>
+	<span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">gc_mode</span><span class="p">;</span>			<span class="cm">/* current GC state */</span>
+<span class="p">};</span>
+</code></pre></div></div>
+
+<p><br /></p>
+
+<p><code class="highlighter-rouge">f2fs_sb_info</code> is initilized in <code class="highlighter-rouge">init_sb_info</code> function.</p>
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">static</span> <span class="kt">void</span> <span class="nf">init_sb_info</span><span class="p">(</span><span class="k">struct</span> <span class="n">f2fs_sb_info</span> <span class="o">*</span><span class="n">sbi</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="c1">// raw_supaer records the information from the storage device, as introduced in f2fs_super_block structure</span>
+	<span class="k">struct</span> <span class="n">f2fs_super_block</span> <span class="o">*</span><span class="n">raw_super</span> <span class="o">=</span> <span class="n">sbi</span><span class="o">-&gt;</span><span class="n">raw_super</span><span class="p">;</span> 
+	<span class="kt">int</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">;</span>
+
+	<span class="n">sbi</span><span class="o">-&gt;</span><span class="n">log_sectors_per_block</span> <span class="o">=</span>
+		<span class="n">le32_to_cpu</span><span class="p">(</span><span class="n">raw_super</span><span class="o">-&gt;</span><span class="n">log_sectors_per_block</span><span class="p">);</span>
+	<span class="n">sbi</span><span class="o">-&gt;</span><span class="n">log_blocksize</span> <span class="o">=</span> <span class="n">le32_to_cpu</span><span class="p">(</span><span class="n">raw_super</span><span class="o">-&gt;</span><span class="n">log_blocksize</span><span class="p">);</span>
+	<span class="n">sbi</span><span class="o">-&gt;</span><span class="n">blocksize</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="n">sbi</span><span class="o">-&gt;</span><span class="n">log_blocksize</span><span class="p">;</span>
+	<span class="n">sbi</span><span class="o">-&gt;</span><span class="n">log_blocks_per_seg</span> <span class="o">=</span> <span class="n">le32_to_cpu</span><span class="p">(</span><span class="n">raw_super</span><span class="o">-&gt;</span><span class="n">log_blocks_per_seg</span><span class="p">);</span>
+	<span class="n">sbi</span><span class="o">-&gt;</span><span class="n">blocks_per_seg</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="n">sbi</span><span class="o">-&gt;</span><span class="n">log_blocks_per_seg</span><span class="p">;</span>
+	<span class="n">sbi</span><span class="o">-&gt;</span><span class="n">segs_per_sec</span> <span class="o">=</span> <span class="n">le32_to_cpu</span><span class="p">(</span><span class="n">raw_super</span><span class="o">-&gt;</span><span class="n">segs_per_sec</span><span class="p">);</span>
+	<span class="n">sbi</span><span class="o">-&gt;</span><span class="n">secs_per_zone</span> <span class="o">=</span> <span class="n">le32_to_cpu</span><span class="p">(</span><span class="n">raw_super</span><span class="o">-&gt;</span><span class="n">secs_per_zone</span><span class="p">);</span>
+	<span class="n">sbi</span><span class="o">-&gt;</span><span class="n">total_sections</span> <span class="o">=</span> <span class="n">le32_to_cpu</span><span class="p">(</span><span class="n">raw_super</span><span class="o">-&gt;</span><span class="n">section_count</span><span class="p">);</span>
+	<span class="n">sbi</span><span class="o">-&gt;</span><span class="n">total_node_count</span> <span class="o">=</span>
+		<span class="p">(</span><span class="n">le32_to_cpu</span><span class="p">(</span><span class="n">raw_super</span><span class="o">-&gt;</span><span class="n">segment_count_nat</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+			<span class="o">*</span> <span class="n">sbi</span><span class="o">-&gt;</span><span class="n">blocks_per_seg</span> <span class="o">*</span> <span class="n">NAT_ENTRY_PER_BLOCK</span><span class="p">;</span>
+	<span class="n">sbi</span><span class="o">-&gt;</span><span class="n">root_ino_num</span> <span class="o">=</span> <span class="n">le32_to_cpu</span><span class="p">(</span><span class="n">raw_super</span><span class="o">-&gt;</span><span class="n">root_ino</span><span class="p">);</span>
+	<span class="n">sbi</span><span class="o">-&gt;</span><span class="n">node_ino_num</span> <span class="o">=</span> <span class="n">le32_to_cpu</span><span class="p">(</span><span class="n">raw_super</span><span class="o">-&gt;</span><span class="n">node_ino</span><span class="p">);</span>
+	<span class="n">sbi</span><span class="o">-&gt;</span><span class="n">meta_ino_num</span> <span class="o">=</span> <span class="n">le32_to_cpu</span><span class="p">(</span><span class="n">raw_super</span><span class="o">-&gt;</span><span class="n">meta_ino</span><span class="p">);</span>
+	<span class="n">sbi</span><span class="o">-&gt;</span><span class="n">cur_victim_sec</span> <span class="o">=</span> <span class="n">NULL_SECNO</span><span class="p">;</span>
+	<span class="n">sbi</span><span class="o">-&gt;</span><span class="n">max_victim_search</span> <span class="o">=</span> <span class="n">DEF_MAX_VICTIM_SEARCH</span><span class="p">;</span>
+
+	<span class="n">sbi</span><span class="o">-&gt;</span><span class="n">dir_level</span> <span class="o">=</span> <span class="n">DEF_DIR_LEVEL</span><span class="p">;</span>
+	<span class="n">sbi</span><span class="o">-&gt;</span><span class="n">interval_time</span><span class="p">[</span><span class="n">CP_TIME</span><span class="p">]</span> <span class="o">=</span> <span class="n">DEF_CP_INTERVAL</span><span class="p">;</span>
+	<span class="n">sbi</span><span class="o">-&gt;</span><span class="n">interval_time</span><span class="p">[</span><span class="n">REQ_TIME</span><span class="p">]</span> <span class="o">=</span> <span class="n">DEF_IDLE_INTERVAL</span><span class="p">;</span>
+	<span class="n">clear_sbi_flag</span><span class="p">(</span><span class="n">sbi</span><span class="p">,</span> <span class="n">SBI_NEED_FSCK</span><span class="p">);</span>
+
+	<span class="k">for</span> <span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">NR_COUNT_TYPE</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+		<span class="n">atomic_set</span><span class="p">(</span><span class="o">&amp;</span><span class="n">sbi</span><span class="o">-&gt;</span><span class="n">nr_pages</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="mi">0</span><span class="p">);</span>
+
+	<span class="k">for</span> <span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">META</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+		<span class="n">atomic_set</span><span class="p">(</span><span class="o">&amp;</span><span class="n">sbi</span><span class="o">-&gt;</span><span class="n">wb_sync_req</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="mi">0</span><span class="p">);</span>
+
+	<span class="n">INIT_LIST_HEAD</span><span class="p">(</span><span class="o">&amp;</span><span class="n">sbi</span><span class="o">-&gt;</span><span class="n">s_list</span><span class="p">);</span>
+	<span class="n">mutex_init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">sbi</span><span class="o">-&gt;</span><span class="n">umount_mutex</span><span class="p">);</span>
+	<span class="k">for</span> <span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">NR_PAGE_TYPE</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+		<span class="k">for</span> <span class="p">(</span><span class="n">j</span> <span class="o">=</span> <span class="n">HOT</span><span class="p">;</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="n">NR_TEMP_TYPE</span><span class="p">;</span> <span class="n">j</span><span class="o">++</span><span class="p">)</span>
+			<span class="n">mutex_init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">sbi</span><span class="o">-&gt;</span><span class="n">wio_mutex</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]);</span>
+	<span class="n">init_rwsem</span><span class="p">(</span><span class="o">&amp;</span><span class="n">sbi</span><span class="o">-&gt;</span><span class="n">io_order_lock</span><span class="p">);</span>
+	<span class="n">spin_lock_init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">sbi</span><span class="o">-&gt;</span><span class="n">cp_lock</span><span class="p">);</span>
+
+	<span class="n">sbi</span><span class="o">-&gt;</span><span class="n">dirty_device</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+	<span class="n">spin_lock_init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">sbi</span><span class="o">-&gt;</span><span class="n">dev_lock</span><span class="p">);</span>
+
+	<span class="n">init_rwsem</span><span class="p">(</span><span class="o">&amp;</span><span class="n">sbi</span><span class="o">-&gt;</span><span class="n">sb_lock</span><span class="p">);</span>
+<span class="p">}</span>
+
+</code></pre></div></div>
+
+	</div>
+</article>
+		</div>
+	</div>
+  </body>
+</html>

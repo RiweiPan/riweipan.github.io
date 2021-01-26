@@ -1,71 +1,232 @@
-<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="4.0.0">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" /><updated>2021-01-23T16:18:26+08:00</updated><id>http://localhost:4000/feed.xml</id><title type="html">Riwei’s Blog</title><subtitle>Focusing on storage technology!</subtitle><entry><title type="html">[Ch1.Sec1]. The Introduction of F2FS</title><link href="http://localhost:4000/f2fs-code-scanning/2021/01/23/f2fs-introduction.html" rel="alternate" type="text/html" title="[Ch1.Sec1]. The Introduction of F2FS" /><published>2021-01-23T15:04:23+08:00</published><updated>2021-01-23T15:04:23+08:00</updated><id>http://localhost:4000/f2fs-code-scanning/2021/01/23/f2fs-introduction</id><content type="html" xml:base="http://localhost:4000/f2fs-code-scanning/2021/01/23/f2fs-introduction.html">&lt;h1 id=&quot;总体介绍&quot;&gt;总体介绍&lt;/h1&gt;
-&lt;p&gt;F2FS全称为Flash Friendly File System，是专门为flash设备设计的一个日志结构型文件系统(Log-structured File System, LFS)。相对于传统的日志结构型文件系统，F2FS在wandering tree和gc的高时间开销等问题，有一定的改进和优化。&lt;/p&gt;
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="4.0.0">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" /><updated>2021-01-26T22:25:58+08:00</updated><id>http://localhost:4000/feed.xml</id><title type="html">Riwei’s Blog</title><subtitle>Focusing on storage technology!</subtitle><entry><title type="html">[F2FS-Code] Superblock Structure</title><link href="http://localhost:4000/f2fs-code-scanning/2021/01/25/f2fs-superblock.html" rel="alternate" type="text/html" title="[F2FS-Code] &lt;Ch1.Sec2&gt; Superblock Structure" /><published>2021-01-25T20:54:23+08:00</published><updated>2021-01-25T20:54:23+08:00</updated><id>http://localhost:4000/f2fs-code-scanning/2021/01/25/f2fs-superblock</id><content type="html" xml:base="http://localhost:4000/f2fs-code-scanning/2021/01/25/f2fs-superblock.html">&lt;h1 id=&quot;superblock-area&quot;&gt;Superblock Area&lt;/h1&gt;
+&lt;p&gt;Superblock Area in F2FS stores the core metadata information, including the capacity of storage devices, block size, available blocks and the index of other areas (SIT, NAT, SSA, Main) on the storage device.&lt;/p&gt;
 
-&lt;ul&gt;
-  &lt;li&gt;
-    &lt;p&gt;&lt;strong&gt;wandering tree问题:&lt;/strong&gt; 传统的LFS，在文件数据被更新或者写入到日志的末端的时候，指向文件数据保存地址的直接指针指针会被更新(flash设备的异地更新特性)，同时指向这个直接指针的间接指针也会更新，然后保存间接指针的inode、inode blockmap等结构也需要更新，这样就导致了频繁metadata的更新。这种问题称为wandering tree问题。&lt;/p&gt;
-  &lt;/li&gt;
-  &lt;li&gt;
-    &lt;p&gt;&lt;strong&gt;高gc开销问题:&lt;/strong&gt; 由于LFS对于修改的数据是执行异地更新的特性，因此数据更新到一个新地址后，旧地址的回收和再利用的过程称为垃圾回收过程(GC)，这个过程会导致不可预期的高延迟，对于用户感知有很大影响。&lt;/p&gt;
-  &lt;/li&gt;
-&lt;/ul&gt;
+&lt;h2 id=&quot;the-layout-of-superblock-on-storage-ddvice&quot;&gt;The Layout of Superblock on Storage Ddvice&lt;/h2&gt;
 
-&lt;h1 id=&quot;系统特性&quot;&gt;系统特性&lt;/h1&gt;
+&lt;p&gt;Superblock Area consists of two &lt;code class=&quot;highlighter-rouge&quot;&gt;struct f2fs_super_block&lt;/code&gt;, which are backups of each other. When the file system is initialized, the two structures are first read from the front of the storage device, loading into memory, and the NAT, SIT, SSA Area are initialized according to the index information recorded by the &lt;code class=&quot;highlighter-rouge&quot;&gt;struct f2fs_super_block&lt;/code&gt;.&lt;/p&gt;
 
-&lt;h3 id=&quot;f2fs的基本数据单位&quot;&gt;F2FS的基本数据单位&lt;/h3&gt;
+&lt;div align=&quot;center&quot;&gt;
+&lt;img src=&quot;/public/img/F2FS-Scanning/F2FS-CH1/sb_layout2.png&quot; width=&quot;730&quot; /&gt;
+&lt;/div&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;struct f2fs_super_block&lt;/code&gt; is a physical structure stored on storage device. When it is loaded into memory, its information will be copied to an in-memory structure &lt;code class=&quot;highlighter-rouge&quot;&gt;struct f2fs_sb_info&lt;/code&gt;. Their definitions are as follows:&lt;/p&gt;
+
+&lt;p&gt;&lt;br /&gt;&lt;/p&gt;
+
+&lt;h4 id=&quot;superblock-physical-structure&quot;&gt;Superblock Physical Structure&lt;/h4&gt;
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;k&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;f2fs_super_block&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le32&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;magic&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;			&lt;span class=&quot;cm&quot;&gt;/* Magic Number */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le16&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;major_ver&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;		&lt;span class=&quot;cm&quot;&gt;/* Major Version */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le16&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;minor_ver&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;		&lt;span class=&quot;cm&quot;&gt;/* Minor Version */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le32&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;log_sectorsize&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;		&lt;span class=&quot;cm&quot;&gt;/* log2 sector size in bytes */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le32&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;log_sectors_per_block&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;cm&quot;&gt;/* log2 # of sectors per block */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le32&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;log_blocksize&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;		&lt;span class=&quot;cm&quot;&gt;/* log2 block size in bytes */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le32&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;log_blocks_per_seg&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;	&lt;span class=&quot;cm&quot;&gt;/* log2 # of blocks per segment */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le32&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;segs_per_sec&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;		&lt;span class=&quot;cm&quot;&gt;/* # of segments per section */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le32&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;secs_per_zone&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;		&lt;span class=&quot;cm&quot;&gt;/* # of sections per zone */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le32&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;checksum_offset&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;		&lt;span class=&quot;cm&quot;&gt;/* checksum offset inside super block */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le64&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;block_count&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;		&lt;span class=&quot;cm&quot;&gt;/* total # of user blocks */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le32&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;section_count&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;		&lt;span class=&quot;cm&quot;&gt;/* total # of sections */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le32&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;segment_count&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;		&lt;span class=&quot;cm&quot;&gt;/* total # of segments */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le32&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;segment_count_ckpt&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;	&lt;span class=&quot;cm&quot;&gt;/* # of segments for checkpoint */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le32&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;segment_count_sit&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;	&lt;span class=&quot;cm&quot;&gt;/* # of segments for SIT */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le32&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;segment_count_nat&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;	&lt;span class=&quot;cm&quot;&gt;/* # of segments for NAT */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le32&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;segment_count_ssa&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;	&lt;span class=&quot;cm&quot;&gt;/* # of segments for SSA */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le32&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;segment_count_main&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;	&lt;span class=&quot;cm&quot;&gt;/* # of segments for main area */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le32&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;segment0_blkaddr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;	&lt;span class=&quot;cm&quot;&gt;/* start block address of segment 0 */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le32&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;cp_blkaddr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;		&lt;span class=&quot;cm&quot;&gt;/* start block address of checkpoint */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le32&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;sit_blkaddr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;		&lt;span class=&quot;cm&quot;&gt;/* start block address of SIT */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le32&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;nat_blkaddr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;		&lt;span class=&quot;cm&quot;&gt;/* start block address of NAT */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le32&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ssa_blkaddr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;		&lt;span class=&quot;cm&quot;&gt;/* start block address of SSA */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le32&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;main_blkaddr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;		&lt;span class=&quot;cm&quot;&gt;/* start block address of main area */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le32&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;root_ino&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;		&lt;span class=&quot;cm&quot;&gt;/* root inode number */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le32&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;node_ino&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;		&lt;span class=&quot;cm&quot;&gt;/* node inode number */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le32&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;meta_ino&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;		&lt;span class=&quot;cm&quot;&gt;/* meta inode number */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__u8&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;uuid&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;16&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;];&lt;/span&gt;			&lt;span class=&quot;cm&quot;&gt;/* 128-bit uuid for volume */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le16&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;volume_name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;MAX_VOLUME_NAME&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;];&lt;/span&gt;	&lt;span class=&quot;cm&quot;&gt;/* volume name */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le32&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;extension_count&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;		&lt;span class=&quot;cm&quot;&gt;/* # of extensions below */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__u8&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;extension_list&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;F2FS_MAX_EXTENSION&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;][&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;F2FS_EXTENSION_LEN&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;];&lt;/span&gt;&lt;span class=&quot;cm&quot;&gt;/* extension array */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le32&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;cp_payload&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__u8&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;version&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;VERSION_LEN&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;];&lt;/span&gt;	&lt;span class=&quot;cm&quot;&gt;/* the kernel version */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__u8&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;init_version&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;VERSION_LEN&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;];&lt;/span&gt;	&lt;span class=&quot;cm&quot;&gt;/* the initial kernel version */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le32&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;feature&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;			&lt;span class=&quot;cm&quot;&gt;/* defined features */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__u8&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;encryption_level&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;		&lt;span class=&quot;cm&quot;&gt;/* versioning level for encryption */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__u8&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;encrypt_pw_salt&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;16&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;];&lt;/span&gt;	&lt;span class=&quot;cm&quot;&gt;/* Salt used for string2key algorithm */&lt;/span&gt;
+	&lt;span class=&quot;k&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;f2fs_device&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;devs&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;MAX_DEVICES&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;];&lt;/span&gt;	&lt;span class=&quot;cm&quot;&gt;/* device list */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__le32&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;qf_ino&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;F2FS_MAX_QUOTAS&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;];&lt;/span&gt;	&lt;span class=&quot;cm&quot;&gt;/* quota inode numbers */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__u8&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;hot_ext_count&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;		&lt;span class=&quot;cm&quot;&gt;/* # of hot file extension */&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;__u8&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;reserved&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;314&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;];&lt;/span&gt;		&lt;span class=&quot;cm&quot;&gt;/* valid reserved region */&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;__packed&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;For a 50MB storage device, the information of a formatted &lt;code class=&quot;highlighter-rouge&quot;&gt;f2fs_super_block&lt;/code&gt; is:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;magic = -218816496
+major_ver = 1
+minor_ver = 10
+log_sectorsize = 9
+log_sectors_per_block = 3
+log_blocksize = 12
+log_blocks_per_seg = 9
+segs_per_sec = 1
+secs_per_zone = 1
+checksum_offset = 0
+block_count = 12800 # 50MB / 4KB = 12800
+section_count = 17
+segment_count = 24
+segment_count_ckpt = 2 # checkpoint uses two segments (2MB * 2)
+segment_count_sit = 2  # SIT: 2 segments
+segment_count_nat = 2  # NAT: 2 segments
+segment_count_ssa = 1  # SSA: 1 segments
+segment_count_main = 17 # main area occupies 17 segments (17 * 2 = 34MB)
+segment0_blkaddr = 512
+cp_blkaddr = 512       # the start offset of Checkpoint Area on storage device
+sit_blkaddr = 1536     # the start offset of SIT Area on storage device
+nat_blkaddr = 2560	   # the start offset of NAT Area on storage device
+ssa_blkaddr = 3584     # the start offset of SSA Area on storage device
+main_blkaddr = 4096    # the start offset of Main Area on storage device
+root_ino = 3
+node_ino = 1
+meta_ino = 2
+extension_count = 27
+cp_payload = 0
+feature = 0
+encryption_level = 
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h4 id=&quot;superblock-in-mmemory-structure&quot;&gt;Superblock In-Mmemory Structure&lt;/h4&gt;
+&lt;p&gt;As mentioned above，&lt;code class=&quot;highlighter-rouge&quot;&gt;f2fs_sb_info&lt;/code&gt; is the memory form of &lt;code class=&quot;highlighter-rouge&quot;&gt;f2fs_super_block&lt;/code&gt;. &lt;code class=&quot;highlighter-rouge&quot;&gt;f2fs_sb_info&lt;/code&gt; records not only the information of f2fs_super_block`, but also locks, GC thread, system mode, and the memory structure of NAT, SIT, etc.&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;k&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;f2fs_sb_info&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+	&lt;span class=&quot;k&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;super_block&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sb&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;			&lt;span class=&quot;cm&quot;&gt;/* pointer to VFS super block */&lt;/span&gt;
+	&lt;span class=&quot;k&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;f2fs_super_block&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;raw_super&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;	&lt;span class=&quot;cm&quot;&gt;/* raw super block pointer */&lt;/span&gt;
+	&lt;span class=&quot;k&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;rw_semaphore&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;sb_lock&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;		&lt;span class=&quot;cm&quot;&gt;/* lock for raw super block */&lt;/span&gt;
+
+	&lt;span class=&quot;cm&quot;&gt;/* for node-related operations */&lt;/span&gt;
+	&lt;span class=&quot;k&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;f2fs_nm_info&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;nm_info&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;		&lt;span class=&quot;cm&quot;&gt;/* node manager */&lt;/span&gt;
+	&lt;span class=&quot;k&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;inode&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;node_inode&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;		&lt;span class=&quot;cm&quot;&gt;/* cache node blocks */&lt;/span&gt;
+
+	&lt;span class=&quot;cm&quot;&gt;/* for segment-related operations */&lt;/span&gt;
+	&lt;span class=&quot;k&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;f2fs_sm_info&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sm_info&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;		&lt;span class=&quot;cm&quot;&gt;/* segment manager */&lt;/span&gt;
+
+	&lt;span class=&quot;cm&quot;&gt;/* for checkpoint */&lt;/span&gt;
+	&lt;span class=&quot;k&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;f2fs_checkpoint&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ckpt&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;		&lt;span class=&quot;cm&quot;&gt;/* raw checkpoint pointer */&lt;/span&gt;
+
+	&lt;span class=&quot;cm&quot;&gt;/* for orphan inode, use 0'th array */&lt;/span&gt;
+	&lt;span class=&quot;kt&quot;&gt;unsigned&lt;/span&gt; &lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;max_orphans&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;		&lt;span class=&quot;cm&quot;&gt;/* max orphan inodes */&lt;/span&gt;
+
+	&lt;span class=&quot;k&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;f2fs_mount_info&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;mount_opt&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;	&lt;span class=&quot;cm&quot;&gt;/* mount options */&lt;/span&gt;
+
+	&lt;span class=&quot;cm&quot;&gt;/* for cleaning operations */&lt;/span&gt;
+	&lt;span class=&quot;k&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;mutex&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;gc_mutex&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;			&lt;span class=&quot;cm&quot;&gt;/* mutex for GC */&lt;/span&gt;
+	&lt;span class=&quot;k&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;f2fs_gc_kthread&lt;/span&gt;	&lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;gc_thread&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;	&lt;span class=&quot;cm&quot;&gt;/* GC thread */&lt;/span&gt;
+	&lt;span class=&quot;kt&quot;&gt;unsigned&lt;/span&gt; &lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;cur_victim_sec&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;		&lt;span class=&quot;cm&quot;&gt;/* current victim section num */&lt;/span&gt;
+	&lt;span class=&quot;kt&quot;&gt;unsigned&lt;/span&gt; &lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;gc_mode&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;			&lt;span class=&quot;cm&quot;&gt;/* current GC state */&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;};&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;br /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;f2fs_sb_info&lt;/code&gt; is initilized in &lt;code class=&quot;highlighter-rouge&quot;&gt;init_sb_info&lt;/code&gt; function.&lt;/p&gt;
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;k&quot;&gt;static&lt;/span&gt; &lt;span class=&quot;kt&quot;&gt;void&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;init_sb_info&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;f2fs_sb_info&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;c1&quot;&gt;// raw_supaer records the information from the storage device, as introduced in f2fs_super_block structure&lt;/span&gt;
+	&lt;span class=&quot;k&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;f2fs_super_block&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;raw_super&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;raw_super&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; 
+	&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;j&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+	&lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;log_sectors_per_block&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;
+		&lt;span class=&quot;n&quot;&gt;le32_to_cpu&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;raw_super&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;log_sectors_per_block&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;log_blocksize&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;le32_to_cpu&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;raw_super&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;log_blocksize&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;blocksize&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;log_blocksize&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;log_blocks_per_seg&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;le32_to_cpu&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;raw_super&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;log_blocks_per_seg&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;blocks_per_seg&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;log_blocks_per_seg&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;segs_per_sec&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;le32_to_cpu&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;raw_super&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;segs_per_sec&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;secs_per_zone&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;le32_to_cpu&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;raw_super&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;secs_per_zone&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;total_sections&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;le32_to_cpu&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;raw_super&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;section_count&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;total_node_count&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;
+		&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;le32_to_cpu&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;raw_super&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;segment_count_nat&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;/&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+			&lt;span class=&quot;o&quot;&gt;*&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;blocks_per_seg&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;NAT_ENTRY_PER_BLOCK&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;root_ino_num&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;le32_to_cpu&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;raw_super&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;root_ino&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;node_ino_num&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;le32_to_cpu&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;raw_super&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;node_ino&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;meta_ino_num&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;le32_to_cpu&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;raw_super&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;meta_ino&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;cur_victim_sec&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;NULL_SECNO&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;max_victim_search&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;DEF_MAX_VICTIM_SEARCH&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+	&lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dir_level&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;DEF_DIR_LEVEL&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;interval_time&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;CP_TIME&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;DEF_CP_INTERVAL&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;interval_time&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;REQ_TIME&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;DEF_IDLE_INTERVAL&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;clear_sbi_flag&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;SBI_NEED_FSCK&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+
+	&lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;i&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;NR_COUNT_TYPE&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;++&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+		&lt;span class=&quot;n&quot;&gt;atomic_set&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;nr_pages&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;],&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+
+	&lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;i&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;META&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;++&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+		&lt;span class=&quot;n&quot;&gt;atomic_set&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;wb_sync_req&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;],&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+
+	&lt;span class=&quot;n&quot;&gt;INIT_LIST_HEAD&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;s_list&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;mutex_init&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;umount_mutex&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;i&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;NR_PAGE_TYPE&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;++&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+		&lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;j&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;HOT&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;j&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;NR_TEMP_TYPE&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;j&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;++&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+			&lt;span class=&quot;n&quot;&gt;mutex_init&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;wio_mutex&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;][&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;j&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]);&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;init_rwsem&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;io_order_lock&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;spin_lock_init&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;cp_lock&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+
+	&lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dirty_device&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;spin_lock_init&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dev_lock&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+
+	&lt;span class=&quot;n&quot;&gt;init_rwsem&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sbi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sb_lock&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;</content><author><name></name></author><category term="F2FS-Code-Scanning" /><summary type="html">Superblock Area Superblock Area in F2FS stores the core metadata information, including the capacity of storage devices, block size, available blocks and the index of other areas (SIT, NAT, SSA, Main) on the storage device.</summary></entry><entry><title type="html">[F2FS-Code] The Introduction of F2FS</title><link href="http://localhost:4000/f2fs-code-scanning/2021/01/23/f2fs-introduction.html" rel="alternate" type="text/html" title="[F2FS-Code] &lt;Ch1.Sec1&gt; The Introduction of F2FS" /><published>2021-01-23T15:04:23+08:00</published><updated>2021-01-23T15:04:23+08:00</updated><id>http://localhost:4000/f2fs-code-scanning/2021/01/23/f2fs-introduction</id><content type="html" xml:base="http://localhost:4000/f2fs-code-scanning/2021/01/23/f2fs-introduction.html">&lt;h1 id=&quot;general-introduction&quot;&gt;General Introduction&lt;/h1&gt;
+&lt;p&gt;Flash Friendly File System (F2FS) is a log-structured File System (LFS) designed specifically for Flash devices. Compared with the traditional log-structured file system, F2FS has some improvements and optimizations to address the problems such as the high time overhead of the wandering tree and garbage collection. You can refer to the F2FS paper with this &lt;a href=&quot;https://www.usenix.org/system/files/conference/fast15/fast15-paper-lee.pdf&quot;&gt;link&lt;/a&gt;.&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;&lt;strong&gt;What is the log-structured File System:&lt;/strong&gt;
+The most remarkable feature of Log-structured File System (LFS) is to write the new file data to unused blocks, which is known as the out-place-update feature in LFS. This means that even if the old blocks contains data, LFS will still write the new data to unused blocks and invalidate the old blocks. The garbage collection thread then reclaims the old and invalid blocks and resets them to be new/unused blocks for feature use. You can refer to this &lt;a href=&quot;http://pages.cs.wisc.edu/~remzi/OSTEP/file-lfs.pdf&quot;&gt;link&lt;/a&gt; for more information about LFS.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;h1 id=&quot;f2fs-features&quot;&gt;F2FS Features&lt;/h1&gt;
+
+&lt;h3 id=&quot;storage-unit&quot;&gt;Storage unit&lt;/h3&gt;
 &lt;ol&gt;
-  &lt;li&gt;&lt;strong&gt;block:&lt;/strong&gt; F2FS的数据存储的基本单位是block，大小为4KB，整个flash设备被格式化为多个block组成的结构。很多数据结构也被设计为4KB的大小，这是因为很多flash设备单次IO的读写都是基于4KB的倍数进行。&lt;/li&gt;
-  &lt;li&gt;&lt;strong&gt;segment:&lt;/strong&gt; segment是管理block的结构，一个segment的大小是512个block，也就是2MB。&lt;/li&gt;
-  &lt;li&gt;&lt;strong&gt;section:&lt;/strong&gt; 默认情况下一个segment等于一个section，section是GC的基本操作单位，每次GC都会从section中选出特定的segment进行回收。F2FS将section分为了6类，分别是hot-node，warm-node，cold-node，hot-data，warm-data，cold-data，hot-&amp;gt;cold表示了数据的从高到低的修改频率，通过不同类型的section，进行gc的时候可针对使用hot的section进行gc，以降低gc的时间开销。&lt;/li&gt;
-  &lt;li&gt;&lt;strong&gt;zone:&lt;/strong&gt; 默认情况一个zone等于一个section，与物理设备有关，大部分情况下用不上。&lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;block:&lt;/strong&gt; The minimum storage unint in F2FS is 4KB-size block and the whole storage space is divied into muliple blocks. There are many data structures designed to be 4KB size, which facilitates the interaction with flash devices because falsh devices handles I/Os in multiples of 4KB.&lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;segment:&lt;/strong&gt; segment is the structure managing blocks. Each segment contains 512 blocks, so the size of segment is 2MB. Each data allocator (or the log head in LFS) manages a segment, and when all the blocks in the segment are allocated, the data allocator will replace a new segment.&lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;section:&lt;/strong&gt; By default, a section manages a segment so that they are one-to-one relationship. Section is the minimim unit for garbage collection (GC). The GC thread will select a victim section to reclaims all blocks in that section.&lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;zone:&lt;/strong&gt; By default, one zone = one section = one segment. Zone is associated with the multi-stream flash device, but we do not discuss here.&lt;/li&gt;
 &lt;/ol&gt;
 
-&lt;h3 id=&quot;lfs异地更新特性&quot;&gt;LFS异地更新特性&lt;/h3&gt;
+&lt;h3 id=&quot;the-feature-of-multi-head-logging-in-f2fs&quot;&gt;The feature of Multi-head Logging in F2FS&lt;/h3&gt;
 
-&lt;p&gt;F2FS是一个Log-structured File System(LFS)，因此会使用&lt;strong&gt;异地更新&lt;/strong&gt;策略。我们可以i用一个简单的例子去说明什么是异地更新。假设有一个文件，它的文件数据保存在物理地址100的位置中，此时用户对文件内容进行更新:&lt;/p&gt;
-
-&lt;p&gt;&lt;strong&gt;非LFS:&lt;/strong&gt; 使用就地更新策略，将更新后的数据写入到物理地址100中。&lt;/p&gt;
-
-&lt;p&gt;&lt;strong&gt;LFS:&lt;/strong&gt; 使用异地更新策略，首先会分配一个新的物理地址101，然后将数据写入新物理地址101中，接着将文件指针指向新的物理地址101，最后将旧的物理地址100进行回收再利用。&lt;/p&gt;
-
-&lt;p&gt;这种设计的好处是:&lt;/p&gt;
-
-&lt;ol&gt;
-  &lt;li&gt;可以将随机写转换为顺序写以获得更好的性能提升;&lt;/li&gt;
-  &lt;li&gt;flash的颗粒program寿命是有限的，通过LFS的异地更新特性，可以自带磨损均衡。&lt;/li&gt;
-&lt;/ol&gt;
-
-&lt;p&gt;但是LFS也有一些缺点，一个最明显的缺点是F2FS要对旧的物理地址进行回收，这个过程称为垃圾回收过程(GC)，不适当的GC时机会影响到系统的性能表现；另外一个缺点是LFS极端情况的安全性不像JFS(journal file system)那么好，因为LFS依赖Checkpoint保证一致性，但是Checkpoint不是每次写入数据都会进行(带来很大的开销)，而是隔一段时间才会进行一次Checkpoint，因此可能在Checkpoint之前系统宕机，会带来部分数据的丢失。&lt;/p&gt;
-
-&lt;h3 id=&quot;multi-head-logging特性&quot;&gt;Multi-head Logging特性&lt;/h3&gt;
-
-&lt;p&gt;Log区域指的是文件系统中用于分配free block(空闲的且没有写入数据的block)的区域，例如F2FS的一个文件需要写入新数据，它就要去Log区域请求free block，然后再将数据写入这个free block中。传统的LFS往往会维护一个大的日志区域，一切数据的分配都从这个大的日志区域中进行处理，而F2FS则根据数据的访问冷热特性差异，维护了6个Log区域，分别是:&lt;/p&gt;
+&lt;p&gt;The log header area in LFS can be understood as a data allocator so it assigns free blocks for written data and manages the allocation information. In traditonal LFS, they only maintain one log head and all data blocks are assigned from this log head. F2FS considers file’s hot-cold access properties and maintains 6 log heads adjusted to different access patterns. This design helps to separate the hot data and cold data so that the garbage collection thread is able to reclaim the appropriate blocks to reduce write amplification. The six log- head is:&lt;/p&gt;
 
 &lt;ul&gt;
-  &lt;li&gt;&lt;strong&gt;HOT NODE区域&lt;/strong&gt;：给目录的direct node使用，因为打开目录、读取目录是最频繁的操作。&lt;/li&gt;
-  &lt;li&gt;&lt;strong&gt;WARM NODE区域&lt;/strong&gt;：给普通文件的direct node使用&lt;/li&gt;
-  &lt;li&gt;&lt;strong&gt;COLD NODE区域&lt;/strong&gt;：给indirect node使用，一般而言只有较大的文件才会使用到这个log区域。&lt;/li&gt;
-  &lt;li&gt;&lt;strong&gt;HOT DATA区域&lt;/strong&gt;：给目录的数据使用，目录数据记录了当前目录有多少个子文件、子文件夹。&lt;/li&gt;
-  &lt;li&gt;&lt;strong&gt;WARM DATA区域&lt;/strong&gt;：给普通文件的数据使用，常规的fwrite/write函数写入的数据都是在这里分配。&lt;/li&gt;
-  &lt;li&gt;&lt;strong&gt;COLD DATA区域&lt;/strong&gt;：给不频繁修改的数据使用，如多媒体文件(多为只读文件)，或者用户指定的只读文件，如GC产生写的数据(gc会挑热度最低的数据)。&lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;HOT NODE Area&lt;/strong&gt;：Direct node blocks for directories. Because opening and listing dir are most frequent dir operations.&lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;WARM NODE Area&lt;/strong&gt;：Direct node blocks for regular files.&lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;COLD NODE Area&lt;/strong&gt;：Indirect node blocks. Indirect node blocks. The blocks are used for the large files.&lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;HOT DATA Area&lt;/strong&gt;：Directory entry blocks. These blocks records the files and sub-dirs information (file name, dir name) in this dir.&lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;WARM DATA Area&lt;/strong&gt;：Data blocks made by users. Normal File data.&lt;/li&gt;
+  &lt;li&gt;&lt;strong&gt;COLD DATA Area&lt;/strong&gt;：Data blocks moved by cleaning; Cold data blocks specified by users/Multimedia file data.&lt;/li&gt;
 &lt;/ul&gt;
 
-&lt;p&gt;&lt;em&gt;注: direct node、indirect node的概念和作用会在第二章进行介绍。&lt;/em&gt;&lt;/p&gt;
+&lt;h1 id=&quot;the-layout-of-f2fs&quot;&gt;The layout of F2FS&lt;/h1&gt;
 
-&lt;h1 id=&quot;f2fs的闪存设备物理区域布局&quot;&gt;F2FS的闪存设备物理区域布局&lt;/h1&gt;
+&lt;div align=&quot;center&quot;&gt;
+&lt;img src=&quot;/public/img/F2FS-Scanning/F2FS-CH1/f2fs-layout.png&quot; width=&quot;950&quot; /&gt;
+&lt;/div&gt;
 
-&lt;p&gt;&lt;img src=&quot;/public/img/F2FS-Scanning/F2FS-CH1/f2fs-layout.png&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;With the help of mkfs.f2fs tool, we can format the whole flash devices into six parts: Superblock, Checkpoint, Segment Info Table, Node Addr Table, Segment Summary Area and Main Area. The first five area is called metadata area, saving the meta information about F2FS (free blocks, block bitmap, etc.). The Main Area stores the dir and file data, including node data, and normal file data. The function of these areas is:&lt;/p&gt;
 
-&lt;p&gt;通过mkfs.f2fs工具，可以将整个flash设备格式化成特定的格式。整个存储设备区域被F2FS格式化为6个区域，分别是Superblock，Checkpoint，Segment Info Table，Node Address Table，Segment Summary Area，以及Main Area。前5个区域总称为元数据区域(Metadata Area)，保存的是跟F2FS直接相关的元信息，而最后一个区域是保存文件数据的主要区域，主要保存了node数据、文件data数据、目录数据。它们的作用分别是:&lt;/p&gt;
+&lt;p&gt;&lt;br /&gt;&lt;/p&gt;
 
-&lt;p&gt;&lt;strong&gt;Superblock:&lt;/strong&gt; 记录整个文件系统的分区信息，包括一共有多少个block，使用了多少block这些最基本同时也是最重要的信息。F2FS在挂载的时候，会创建一个内存数据结构&lt;code class=&quot;highlighter-rouge&quot;&gt;struct f2fs_sb_info&lt;/code&gt;，然后从设备的Superblock区域读取相关数据。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Superblock:&lt;/strong&gt; Record the meta information about F2FS, including the number of blocks, free blocks, nodes, etc. The corresponding in-memory data structure is &lt;code class=&quot;highlighter-rouge&quot;&gt;struct f2fs_sb_info&lt;/code&gt;.&lt;/p&gt;
 
-&lt;p&gt;&lt;strong&gt;Checkpoint:&lt;/strong&gt; 记录了上次卸载F2FS的时刻，系统的block、node等分配状态(如当前free block分配了到哪个位置)，用于给下次挂载F2FS的时候，复原整个系统的block、node的分配状态。在F2FS的运行过程中，F2FS会定时将当前的block、node分配状态写入Checkpoint区域，用于由于F2FS被关闭/崩溃时恢复数据。Checkpoint在内存中对应的数据结构是&lt;code class=&quot;highlighter-rouge&quot;&gt;struct f2fs_checkpoint&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Checkpoint:&lt;/strong&gt; Recording the information about log heads, including the number of free blocks in the log head, and the location where the log head has allocated. F2FS will write the block and node allocation status in Checkpoint Area periodically and F2FS can recover the file system by the information in Checkpoint. The corresponding in-memory data structure is &lt;code class=&quot;highlighter-rouge&quot;&gt;struct f2fs_checkpoint&lt;/code&gt;.&lt;/p&gt;
 
-&lt;p&gt;&lt;strong&gt;Segment Information Table(SIT):&lt;/strong&gt; 保存了每一个segment的信息，例如这个segment已经分配了多少个block、哪一个block正在使用，哪一个block是无效的需要回收。通过这些信息去管理已经被使用了的block和未使用的block，使系统可以合理分配block。每一个segment都对应了一个segment number(segno)，系统可以通过segno快速地查询到该segment的分配信息。SIT在内存中对应的数据结构是&lt;code class=&quot;highlighter-rouge&quot;&gt;struct f2fs_sm_info&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Segment Information Table(SIT):&lt;/strong&gt; Record the information of each segment, including the number of free blocks in this segment, and a bitmap of block status. Each segment has a unqiue segment number (segno) and F2FS can acquire the information about segment by segno. The corresponding in-memory data structure is &lt;code class=&quot;highlighter-rouge&quot;&gt;struct f2fs_sm_info&lt;/code&gt;.&lt;/p&gt;
 
-&lt;p&gt;&lt;strong&gt;Node Address Table(NAT):&lt;/strong&gt; 建立了一张表保存了每一个node的物理地址信息。F2FS的每一个node都有一个node id(nid)，系统可以通过nid在NAT找到对应node的物理地址，从而在闪存设备读取出来。NAT在内存中对应的数据结构是&lt;code class=&quot;highlighter-rouge&quot;&gt;struct f2fs_nm_info&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Node Address Table(NAT):&lt;/strong&gt; Record the information of node. Each node has a node id, which corresponds an entry in NAT. F2FS can obtains storage location of node by referring the NAT with node id.The corresponding in-memory data structure is &lt;code class=&quot;highlighter-rouge&quot;&gt;struct f2fs_nm_info&lt;/code&gt;.&lt;/p&gt;
 
-&lt;p&gt;&lt;strong&gt;Segment Summary Area(SSA):&lt;/strong&gt; 这个区域主要保存了jounal(SIT/NAT临时的修改信息)以及summary(记录了逻辑地址和物理地址关系的结构，主要用与GC)。SSA区域在内存中没有专门的数据结构。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Segment Summary Area(SSA):&lt;/strong&gt; Record the data journals and summarys. Journals are used to cache information about temporary changes of SIT and NAT, which can reduce write amplification. Summarys record the relation between logical blocks and physical blocks, and this relation is used in garbage collection operation. There is no in-memory data structure for SSA area.&lt;/p&gt;
 
-&lt;p&gt;&lt;strong&gt;Main Area:&lt;/strong&gt; Main Area被4KB大小的block所填充，这些block可以分配给文件的data或者文件的node，是F2FS的主要数据保存区域。&lt;/p&gt;</content><author><name></name></author><category term="F2FS-Code-Scanning" /><summary type="html">总体介绍 F2FS全称为Flash Friendly File System，是专门为flash设备设计的一个日志结构型文件系统(Log-structured File System, LFS)。相对于传统的日志结构型文件系统，F2FS在wandering tree和gc的高时间开销等问题，有一定的改进和优化。</summary></entry></feed>
+&lt;p&gt;&lt;strong&gt;Main Area:&lt;/strong&gt; Main area is filled with 4KB-size block and these block can store normal file data, dir data and node data.&lt;/p&gt;</content><author><name></name></author><category term="F2FS-Code-Scanning" /><summary type="html">General Introduction Flash Friendly File System (F2FS) is a log-structured File System (LFS) designed specifically for Flash devices. Compared with the traditional log-structured file system, F2FS has some improvements and optimizations to address the problems such as the high time overhead of the wandering tree and garbage collection. You can refer to the F2FS paper with this link.</summary></entry></feed>
