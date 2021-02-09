@@ -9,7 +9,7 @@ category: F2FS-Code-Scanning
 # Superblock Area
 Superblock Area in F2FS stores the core metadata information, including the capacity of storage devices, block size, available blocks and the index of other areas (SIT, NAT, SSA, Main) on the storage device.
 
-## The Layout of Superblock on Storage Ddvice
+## The Layout of Superblock on Storage Device
 
 
 Superblock Area consists of two `struct f2fs_super_block`, which are backups of each other. When the file system is initialized, the two structures are first read from the front of the storage device, loading into memory, and the NAT, SIT, SSA Area are initialized according to the index information recorded by the `struct f2fs_super_block`.
